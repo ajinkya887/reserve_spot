@@ -2,20 +2,32 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/Users');
 
 // Verify JWT Token
-const verifyToken = (req, res, next) => {
-  const token = req.header('Authorization')?.split(' ')[1];
-  console.log("Token: ", token);
+const verifyToken = async (req, res, next) => {
+  const token = req.headers.authorization?.split(" ")[1]; // Extract token from Bearer header
 
   if (!token) {
-    return res.status(403).json({ message: 'Access denied, no token provided' });
+    return res.status(401).json({ message: 'Authorization token is missing' });
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.userId = decoded.userId;
+    const decoded = jwt.verify(token, process.env.JWT_SECRET); // Replace with your JWT secret
+    const user = await User.findById(decoded.userId); // Find the user in the database
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    req.user = {
+      userId: user._id,
+      name: user.userName,
+      email: user.email,
+    }; // Attach user to the request object
+
+    req.userId = user._id; // For convenience
     next();
   } catch (error) {
-    res.status(401).json({ message: 'Invalid or expired token' });
+    console.error(error);
+    res.status(403).json({ message: 'Invalid or expired token' });
   }
 };
 
